@@ -68,25 +68,34 @@ class PWAWebCrawler:
             logging.warning(f"Error detecting PWA/React for {url}: {str(e)}")
             return False
 
-    def extract_content(self, url, wait_time=10, scroll=False):
-        """Modified extract_content method"""
+    def extract_content(self, url, wait_time=10, scroll=False, max_retries=3):
+        """Modified extract_content method with retries"""
         # First check if it's a PWA/React site
         is_dynamic = self.is_pwa_or_react(url)
         
         if not is_dynamic:
-            # If it's not a PWA/React site, use simple requests
-            try:
-                response = requests.get(url, headers={'User-Agent': self.chrome_options.arguments[-1].split('=')[1]})
-                soup = BeautifulSoup(response.text, 'html.parser')
-                # Remove script and style elements
-                for script in soup(["script", "style"]):
-                    script.decompose()
-                # Get text content
-                text = soup.get_text(separator=' ', strip=True)
-                return ' '.join(text.split())
-            except Exception as e:
-                logging.error(f"Error crawling static site {url}: {str(e)}")
-                return None
+            # If it's not a PWA/React site, use simple requests with retries
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(
+                        url, 
+                        headers={'User-Agent': self.chrome_options.arguments[-1].split('=')[1]},
+                        timeout=wait_time
+                    )
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    # Remove script and style elements
+                    for script in soup(["script", "style"]):
+                        script.decompose()
+                    # Get text content
+                    text = soup.get_text(separator=' ', strip=True)
+                    return ' '.join(text.split())
+                except Exception as e:
+                    if attempt == max_retries - 1:  # Last attempt
+                        logging.error(f"Error crawling static site {url} after {max_retries} attempts: {str(e)}")
+                        return None
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
 
         # If it is a PWA/React site, use Selenium
         driver = None

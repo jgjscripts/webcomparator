@@ -6,6 +6,7 @@ from crawler_pwa import PWAWebCrawler
 from curl_crawler import CurlCrawler
 import os
 from dotenv import load_dotenv
+import time
 
 # Load environment variables
 load_dotenv()
@@ -58,10 +59,16 @@ def index():
             # Compare contents (now synchronous)
             comparison_result = comparator.compare_contents(processed_content1, processed_content2)
 
+            # Add a small delay to ensure loading state is visible
+            time.sleep(1)
+
             return render_template('index.html', 
                                 comparison_result=comparison_result,
                                 is_pwa1=is_pwa1 if 'is_pwa1' in locals() else None,
-                                is_pwa2=is_pwa2 if 'is_pwa2' in locals() else None)
+                                is_pwa2=is_pwa2 if 'is_pwa2' in locals() else None,
+                                url1=url1,
+                                url2=url2,
+                                curl_commands=curl_commands if use_curl else None)
 
         except Exception as e:
             return render_template('index.html', error=str(e))
